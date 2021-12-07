@@ -127,8 +127,8 @@ fn b64_encode(mut reader: impl Read, mut writer: impl Write, wrap: Option<usize>
             let a = read_buffer[0];
             write_buffer[write_index]   = alphabet[(a >> 2)         as usize];
             write_buffer[write_index+1] = alphabet[((a & 0x3) << 4) as usize];
-            write_buffer[write_index+2] = '=' as u8;
-            write_buffer[write_index+3] = '=' as u8;
+            write_buffer[write_index+2] = '='  as u8;
+            write_buffer[write_index+3] = '='  as u8;
             write_buffer[write_index+4] = '\n' as u8;
             write_index += 5;
         }
@@ -138,7 +138,7 @@ fn b64_encode(mut reader: impl Read, mut writer: impl Write, wrap: Option<usize>
             write_buffer[write_index]   = alphabet[(a >> 2)                      as usize];
             write_buffer[write_index+1] = alphabet[(((a & 0x3) << 4) | (b >> 4)) as usize];
             write_buffer[write_index+2] = alphabet[((b & 0xF) << 2)              as usize];
-            write_buffer[write_index+3] = '=' as u8;
+            write_buffer[write_index+3] = '='  as u8;
             write_buffer[write_index+4] = '\n' as u8;
             write_index += 5;
         }
