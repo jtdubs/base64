@@ -1,6 +1,6 @@
 extern crate clap;
 use clap::{App, Arg};
-use std::io::{Read, stdin};
+use std::io::{Read, Write, stdin, stdout};
 use std::fs::{File};
 
 fn main() -> Result<(), std::io::Error> {
@@ -41,14 +41,17 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
-    let alphabet : Vec<char> = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".chars().collect();
+    let stdout = stdout();
+    let mut stdout_handle = stdout.lock();
+
+    let alphabet : Vec<u8> = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".bytes().collect();
 
     let mut read_index : usize = 0;
-    let mut buffer : [u8; 16384] = [0; 16384];
+    let mut buffer : [u8; 4096] = [0; 4096];
     let mut buffer_end : usize;
     let mut bytes_read : usize;
 
-    // let mut reader = BufReader::new(input);
+    let mut out_buffer : Vec<u8> = Vec::with_capacity(8192);
 
     loop {
         // fill buffer
@@ -57,26 +60,20 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
         // determine end index based on start and amount read
         buffer_end = bytes_read + read_index;
 
-        // if at least one full "block" of 3 bytes
-        if buffer_end >= 3 {
-            // process each block
-            for i in (0..buffer_end-2).step_by(3) {
-                let a = buffer[i];
-                let b = buffer[i+1];
-                let c = buffer[i+2];
-                let r1 = alphabet[(a >> 2) as usize];
-                let r2 = alphabet[(((a & 0x3) << 4) | (b >> 4)) as usize];
-                let r3 = alphabet[(((b & 0xF) << 2) | (c >> 6)) as usize];
-                let r4 = alphabet[(c & 0x3F) as usize];
-                print!("{}{}{}{}", r1, r2, r3, r4);
-            }
+        for chunk in buffer[0..buffer_end].chunks_exact(3) {
+            let (a, b, c) = (chunk[0], chunk[1], chunk[2]);
+            let abc : u32 = ((a as u32) << 16) | ((b as u32) << 8) | (c as u32);
+            out_buffer.push(alphabet[ (abc >> 18)         as usize]);
+            out_buffer.push(alphabet[((abc >> 12) & 0x3f) as usize]);
+            out_buffer.push(alphabet[((abc >>  6) & 0x3f) as usize]);
+            out_buffer.push(alphabet[( abc        & 0x3f) as usize]);
         }
 
         // update read index based on risidual data
         read_index = buffer_end % 3;
 
         // move risidual data to front of buffer
-        match buffer_end % 3 {
+        match read_index {
             0 => { }
             1 => { buffer[0] = buffer[buffer_end-1]; }
             2 => { buffer[0] = buffer[buffer_end-2]; buffer[1] = buffer[buffer_end-1]; }
@@ -87,6 +84,9 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
         if bytes_read == 0 {
             break;
         }
+
+        stdout_handle.write_all(&out_buffer[0..out_buffer.len()])?;
+        out_buffer.clear();
     }
 
     // process remaining data
@@ -94,22 +94,25 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
         0 => { }
         1 => {
             let a = buffer[0];
-            let r1 = alphabet[(a >> 2) as usize];
-            let r2 = alphabet[((a & 0x3) << 4) as usize];
-            print!("{}{}==", r1, r2);
+            out_buffer.push(alphabet[(a >> 2) as usize]);
+            out_buffer.push(alphabet[((a & 0x3) << 4) as usize]);
+            out_buffer.push('=' as u8);
+            out_buffer.push('=' as u8);
+            out_buffer.push('\n' as u8);
         }
         2 => {
             let a = buffer[0];
             let b = buffer[1];
-            let r1 = alphabet[(a >> 2) as usize];
-            let r2 = alphabet[(((a & 0x3) << 4) | (b >> 4)) as usize];
-            let r3 = alphabet[((b & 0xF) << 2) as usize];
-            print!("{}{}{}=", r1, r2, r3);
+            out_buffer.push(alphabet[(a >> 2) as usize]);
+            out_buffer.push(alphabet[(((a & 0x3) << 4) | (b >> 4)) as usize]);
+            out_buffer.push(alphabet[((b & 0xF) << 2) as usize]);
+            out_buffer.push('=' as u8);
+            out_buffer.push('\n' as u8);
         }
         _ => { unreachable!("impossible mod 3 value"); }
     }
 
-    println!();
+    stdout_handle.write_all(&out_buffer[0..out_buffer.len()])?;
 
     Ok(())
 }
