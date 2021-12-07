@@ -29,8 +29,8 @@ fn main() -> Result<(), std::io::Error> {
             .arg(Arg::with_name("FILE"))
             .get_matches();
 
-    let _decode         = matches.is_present("decode");
-    let _ignore_garbage = matches.is_present("ignore_garbage");
+    let decode         = matches.is_present("decode");
+    let ignore_garbage = matches.is_present("ignore_garbage");
     let wrap_column    = matches.value_of("wrap").unwrap().parse::<usize>().ok().filter(|&x| x != 0);
     let file           = matches.value_of("FILE").unwrap_or("-");
 
@@ -41,11 +41,25 @@ fn main() -> Result<(), std::io::Error> {
     if file == "-" {
         let stdin = stdin();
         let stdin_lock = stdin.lock();
-        b64_encode(BufReader::new(stdin_lock), writer, wrap_column)
+        let reader = BufReader::new(stdin_lock);
+        if decode {
+            b64_decode(reader, writer, ignore_garbage)
+        } else {
+            b64_encode(reader, writer, wrap_column)
+        }
     } else {
         let file_handle = File::open(file)?;
-        b64_encode(BufReader::new(file_handle), writer, wrap_column)
+        let reader = BufReader::new(file_handle);
+        if decode {
+            b64_decode(reader, writer, ignore_garbage)
+        } else {
+            b64_encode(reader, writer, wrap_column)
+        }
     }
+}
+
+fn b64_decode(mut _reader: impl Read, mut _writer: impl Write, _ignore_garbage: bool) -> Result<(), std::io::Error> {
+    Ok(())
 }
 
 fn b64_encode(mut reader: impl Read, mut writer: impl Write, wrap: Option<usize>) -> Result<(), std::io::Error> {
