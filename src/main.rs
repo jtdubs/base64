@@ -48,7 +48,6 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
 
     let mut read_index : usize = 0;
     let mut buffer : [u8; 4096] = [0; 4096];
-    let mut buffer_end : usize;
     let mut bytes_read : usize;
 
     let mut out_buffer : Vec<u8> = Vec::with_capacity(8192);
@@ -57,10 +56,16 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
         // fill buffer
         bytes_read = reader.read(&mut buffer[read_index..])?;
 
-        // determine end index based on start and amount read
-        buffer_end = bytes_read + read_index;
+        // if out of data, exit loop
+        if bytes_read == 0 {
+            break;
+        }
 
-        for chunk in buffer[0..buffer_end].chunks_exact(3) {
+        // update read_index base on bytes_read
+        read_index += bytes_read;
+
+        // process all chunks of 3 bytes into 4 base64 characters
+        for chunk in buffer[0..read_index].chunks_exact(3) {
             let (a, b, c) = (chunk[0], chunk[1], chunk[2]);
             let abc : u32 = ((a as u32) << 16) | ((b as u32) << 8) | (c as u32);
             out_buffer.push(alphabet[ (abc >> 18)         as usize]);
@@ -69,43 +74,40 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
             out_buffer.push(alphabet[( abc        & 0x3f) as usize]);
         }
 
-        // update read index based on risidual data
-        read_index = buffer_end % 3;
-
         // move risidual data to front of buffer
-        match read_index {
+        match read_index % 3 {
             0 => { }
-            1 => { buffer[0] = buffer[buffer_end-1]; }
-            2 => { buffer[0] = buffer[buffer_end-2]; buffer[1] = buffer[buffer_end-1]; }
+            1 => { buffer[0] = buffer[read_index-1]; }
+            2 => { buffer[0] = buffer[read_index-2]; buffer[1] = buffer[read_index-1]; }
             _ => { unreachable!("impossible mod 3 value"); }
         }
 
-        // if out of data, exit loop
-        if bytes_read == 0 {
-            break;
-        }
+        // update read index to end of risidual data
+        read_index %= 3;
 
+        // write base64 characters to stdout
         stdout_handle.write_all(&out_buffer[0..out_buffer.len()])?;
         out_buffer.clear();
     }
 
     // process remaining data
-    match buffer_end % 3 {
+    match read_index % 3 {
         0 => { }
         1 => {
-            let a = buffer[0];
-            out_buffer.push(alphabet[(a >> 2) as usize]);
-            out_buffer.push(alphabet[((a & 0x3) << 4) as usize]);
+            let (a, b, c) = (buffer[0], 0, 0);
+            let abc : u32 = ((a as u32) << 16) | ((b as u32) << 8) | (c as u32);
+            out_buffer.push(alphabet[ (abc >> 18)         as usize]);
+            out_buffer.push(alphabet[((abc >> 12) & 0x3f) as usize]);
             out_buffer.push('=' as u8);
             out_buffer.push('=' as u8);
             out_buffer.push('\n' as u8);
         }
         2 => {
-            let a = buffer[0];
-            let b = buffer[1];
-            out_buffer.push(alphabet[(a >> 2) as usize]);
-            out_buffer.push(alphabet[(((a & 0x3) << 4) | (b >> 4)) as usize]);
-            out_buffer.push(alphabet[((b & 0xF) << 2) as usize]);
+            let (a, b, c) = (buffer[0], buffer[1], 0);
+            let abc : u32 = ((a as u32) << 16) | ((b as u32) << 8) | (c as u32);
+            out_buffer.push(alphabet[ (abc >> 18)         as usize]);
+            out_buffer.push(alphabet[((abc >> 12) & 0x3f) as usize]);
+            out_buffer.push(alphabet[((abc >>  6) & 0x3f) as usize]);
             out_buffer.push('=' as u8);
             out_buffer.push('\n' as u8);
         }
