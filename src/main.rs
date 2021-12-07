@@ -66,11 +66,9 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
         read_index += bytes_read;
 
         // process all chunks of 3 bytes into 4 base64 characters
-        let mut i = 0;
-        while i < (read_index - 2) {
-            let (a, b, c) = (read_buffer[i], read_buffer[i+1], read_buffer[i+2]);
-            i += 3;
-            write_buffer[write_index] = alphabet[(a >> 2)                      as usize];
+        for chunk in read_buffer[0..read_index].chunks_exact(3) {
+            let (a, b, c) = (chunk[0], chunk[1], chunk[2]);
+            write_buffer[write_index]   = alphabet[(a >> 2)                      as usize];
             write_buffer[write_index+1] = alphabet[(((a & 0x3) << 4) | (b >> 4)) as usize];
             write_buffer[write_index+2] = alphabet[(((b & 0xF) << 2) | (c >> 6)) as usize];
             write_buffer[write_index+3] = alphabet[(c & 0x3F)                    as usize];
@@ -97,21 +95,19 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
     match read_index % 3 {
         0 => { }
         1 => {
-            let (a, b, c) = (read_buffer[0], 0, 0);
-            let abc : u32 = ((a as u32) << 16) | ((b as u32) << 8) | (c as u32);
-            write_buffer[write_index] = alphabet[((abc >> 18) & 0x3F) as usize];
-            write_buffer[write_index+1] = alphabet[((abc >> 12) & 0x3F) as usize];
+            let a = read_buffer[0];
+            write_buffer[write_index]   = alphabet[(a >> 2)         as usize];
+            write_buffer[write_index+1] = alphabet[((a & 0x3) << 4) as usize];
             write_buffer[write_index+2] = '=' as u8;
             write_buffer[write_index+3] = '=' as u8;
             write_buffer[write_index+4] = '\n' as u8;
             write_index += 5;
         }
         2 => {
-            let (a, b, c) = (read_buffer[0], read_buffer[1], 0);
-            let abc : u32 = ((a as u32) << 16) | ((b as u32) << 8) | (c as u32);
-            write_buffer[write_index] = alphabet[((abc >> 18) & 0x3F) as usize];
-            write_buffer[write_index+1] = alphabet[((abc >> 12) & 0x3F) as usize];
-            write_buffer[write_index+2] = alphabet[((abc >>  6) & 0x3F) as usize];
+            let (a, b) = (read_buffer[0], read_buffer[1]);
+            write_buffer[write_index]   = alphabet[(a >> 2)                      as usize];
+            write_buffer[write_index+1] = alphabet[(((a & 0x3) << 4) | (b >> 4)) as usize];
+            write_buffer[write_index+2] = alphabet[((b & 0xF) << 2)              as usize];
             write_buffer[write_index+3] = '=' as u8;
             write_buffer[write_index+4] = '\n' as u8;
             write_index += 5;
