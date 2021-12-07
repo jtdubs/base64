@@ -34,27 +34,27 @@ fn main() -> Result<(), std::io::Error> {
     let file           = matches.value_of("FILE").unwrap_or("-");
 
     if file == "-" {
-        b64_encode(stdin())
+        let stdin = stdin();
+        let stdin_handle = stdin.lock();
+        b64_encode(stdin_handle)
     } else {
         b64_encode(File::open(file).unwrap())
     }
 }
 
 fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
+    let alphabet : Vec<u8> = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".bytes().collect();
+
     let stdout = stdout();
     let mut stdout_handle = stdout.lock();
 
-    let alphabet : Vec<u8> = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".bytes().collect();
-
     let mut read_index : usize = 0;
-    let mut buffer : [u8; 4096] = [0; 4096];
-    let mut bytes_read : usize;
-
-    let mut out_buffer : Vec<u8> = Vec::with_capacity(8192);
+    let mut buffer : [u8; 8192] = [0; 8192];
+    let mut out_buffer : Vec<u8> = Vec::with_capacity(16384);
 
     loop {
         // fill buffer
-        bytes_read = reader.read(&mut buffer[read_index..])?;
+        let bytes_read = reader.read(&mut buffer[read_index..])?;
 
         // if out of data, exit loop
         if bytes_read == 0 {
@@ -68,10 +68,10 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
         for chunk in buffer[0..read_index].chunks_exact(3) {
             let (a, b, c) = (chunk[0], chunk[1], chunk[2]);
             let abc : u32 = ((a as u32) << 16) | ((b as u32) << 8) | (c as u32);
-            out_buffer.push(alphabet[ (abc >> 18)         as usize]);
-            out_buffer.push(alphabet[((abc >> 12) & 0x3f) as usize]);
-            out_buffer.push(alphabet[((abc >>  6) & 0x3f) as usize]);
-            out_buffer.push(alphabet[( abc        & 0x3f) as usize]);
+            out_buffer.push(alphabet[((abc >> 18) & 0x3F) as usize]);
+            out_buffer.push(alphabet[((abc >> 12) & 0x3F) as usize]);
+            out_buffer.push(alphabet[((abc >>  6) & 0x3F) as usize]);
+            out_buffer.push(alphabet[((abc      ) & 0x3F) as usize]);
         }
 
         // move risidual data to front of buffer
@@ -96,8 +96,8 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
         1 => {
             let (a, b, c) = (buffer[0], 0, 0);
             let abc : u32 = ((a as u32) << 16) | ((b as u32) << 8) | (c as u32);
-            out_buffer.push(alphabet[ (abc >> 18)         as usize]);
-            out_buffer.push(alphabet[((abc >> 12) & 0x3f) as usize]);
+            out_buffer.push(alphabet[((abc >> 18) & 0x3F) as usize]);
+            out_buffer.push(alphabet[((abc >> 12) & 0x3F) as usize]);
             out_buffer.push('=' as u8);
             out_buffer.push('=' as u8);
             out_buffer.push('\n' as u8);
@@ -105,9 +105,9 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
         2 => {
             let (a, b, c) = (buffer[0], buffer[1], 0);
             let abc : u32 = ((a as u32) << 16) | ((b as u32) << 8) | (c as u32);
-            out_buffer.push(alphabet[ (abc >> 18)         as usize]);
-            out_buffer.push(alphabet[((abc >> 12) & 0x3f) as usize]);
-            out_buffer.push(alphabet[((abc >>  6) & 0x3f) as usize]);
+            out_buffer.push(alphabet[((abc >> 18) & 0x3F) as usize]);
+            out_buffer.push(alphabet[((abc >> 12) & 0x3F) as usize]);
+            out_buffer.push(alphabet[((abc >>  6) & 0x3F) as usize]);
             out_buffer.push('=' as u8);
             out_buffer.push('\n' as u8);
         }
