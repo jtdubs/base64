@@ -49,8 +49,8 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
     let mut stdout_handle = stdout.lock();
 
     let mut read_index : usize = 0;
-    let mut buffer : [u8; 8192] = [0; 8192];
-    let mut out_buffer : Vec<u8> = Vec::with_capacity(16384);
+    let mut buffer : [u8; 65536] = [0; 65536];
+    let mut out_buffer : Vec<u8> = Vec::with_capacity(131072);
 
     loop {
         // fill buffer
@@ -65,13 +65,14 @@ fn b64_encode(mut reader: impl Read) -> Result<(), std::io::Error> {
         read_index += bytes_read;
 
         // process all chunks of 3 bytes into 4 base64 characters
-        for chunk in buffer[0..read_index].chunks_exact(3) {
-            let (a, b, c) = (chunk[0], chunk[1], chunk[2]);
-            let abc : u32 = ((a as u32) << 16) | ((b as u32) << 8) | (c as u32);
-            out_buffer.push(alphabet[((abc >> 18) & 0x3F) as usize]);
-            out_buffer.push(alphabet[((abc >> 12) & 0x3F) as usize]);
-            out_buffer.push(alphabet[((abc >>  6) & 0x3F) as usize]);
-            out_buffer.push(alphabet[((abc      ) & 0x3F) as usize]);
+        let mut i = 0;
+        while i < (read_index - 2) {
+            let (a, b, c) = (buffer[i], buffer[i+1], buffer[i+2]);
+            i += 3;
+            out_buffer.push(alphabet[(a >> 2)                      as usize]);
+            out_buffer.push(alphabet[(((a & 0x3) << 4) | (b >> 4)) as usize]);
+            out_buffer.push(alphabet[(((b & 0xF) << 2) | (c >> 6)) as usize]);
+            out_buffer.push(alphabet[(c & 0x3F)                    as usize]);
         }
 
         // move risidual data to front of buffer
