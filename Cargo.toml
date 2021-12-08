@@ -1,9 +1,17 @@
 [package]
 name = "base64"
 version = "0.1.0"
+authors = ["Justin Dubs <jtdubs@gmail.com>"]
+license = "MIT"
 edition = "2021"
+description = "GNU-coreutils-compatible base64 encoder and decoder"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+path = "src/base64.rs"
 
 [dependencies]
 clap = "2.34.0"
+
+[[bin]]
+name = "base64"
+path = "src/main.rs"
