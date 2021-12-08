@@ -69,7 +69,7 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 // the canonical base-64 alphabet
-const ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 fn b64_decode(mut reader: impl Read, mut writer: impl Write, ignore_garbage: bool) -> Result<(), std::io::Error> {
     // create reverse lookup that maps:
@@ -77,8 +77,8 @@ fn b64_decode(mut reader: impl Read, mut writer: impl Write, ignore_garbage: boo
     //   - base-64 padding to 254
     //   - whitespace to 253
     let mut reverse_alphabet: [u8; 256] = [255; 256];
-    for (i, c) in ALPHABET.bytes().enumerate() {
-        reverse_alphabet[c as usize] = i as u8;
+    for ix in 0..64 {
+        reverse_alphabet[ALPHABET[ix] as usize] = ix as u8;
     }
     reverse_alphabet['=' as usize] = 254;
     for c in " \t\r\n".bytes() {
@@ -86,8 +86,8 @@ fn b64_decode(mut reader: impl Read, mut writer: impl Write, ignore_garbage: boo
     }
 
     // read & write buffers
-    let mut read_buffer:  [u8; 65536] = [0; 65536];
-    let mut write_buffer: [u8; 65536] = [0; 65536];
+    let mut read_buffer:  [u8; 4096] = [0; 4096];
+    let mut write_buffer: [u8; 4096] = [0; 4096];
     let mut write_index:  usize = 0; // current index into write_buffer
     let mut write_offset: usize = 0; // current bit-offset within write_buffer[index]
 
@@ -171,13 +171,14 @@ fn b64_decode(mut reader: impl Read, mut writer: impl Write, ignore_garbage: boo
 }
 
 fn b64_encode(mut reader: impl Read, mut writer: impl Write, wrap: Option<usize>) -> Result<(), std::io::Error> {
-    let alphabet: Vec<u8> = ALPHABET.bytes().collect();
-
-    let mut read_buffer:  [u8; 65536] = [0; 65536];
+    // read and write buffers and indecies
+    let mut read_buffer:  [u8; 65535] = [0; 65535];
     let mut read_index:   usize       = 0;
-    let mut write_buffer: [u8; 98304] = [0; 98304];
+    let mut write_buffer: [u8; 87380] = [0; 87380];
     let mut write_index:  usize       = 0;
-    let mut current_col:  usize       = 0;
+
+    // current output column (for wrapping)
+    let mut current_col:  usize = 0;
 
     loop {
         // fill read buffer
@@ -194,10 +195,10 @@ fn b64_encode(mut reader: impl Read, mut writer: impl Write, wrap: Option<usize>
         // process all chunks of 3 bytes into 4 output characters
         for chunk in read_buffer[0..read_index].chunks_exact(3) {
             let (a, b, c) = (chunk[0], chunk[1], chunk[2]);
-            write_buffer[write_index]   = alphabet[(a >> 2)                      as usize];
-            write_buffer[write_index+1] = alphabet[(((a & 0x3) << 4) | (b >> 4)) as usize];
-            write_buffer[write_index+2] = alphabet[(((b & 0xF) << 2) | (c >> 6)) as usize];
-            write_buffer[write_index+3] = alphabet[(c & 0x3F)                    as usize];
+            write_buffer[write_index]   = ALPHABET[(a >> 2)                      as usize];
+            write_buffer[write_index+1] = ALPHABET[(((a & 0x3) << 4) | (b >> 4)) as usize];
+            write_buffer[write_index+2] = ALPHABET[(((b & 0xF) << 2) | (c >> 6)) as usize];
+            write_buffer[write_index+3] = ALPHABET[(c & 0x3F)                    as usize];
             write_index += 4;
         }
 
@@ -223,8 +224,8 @@ fn b64_encode(mut reader: impl Read, mut writer: impl Write, wrap: Option<usize>
         1 => {
             // output last byte as two data chars and two padding chars
             let a = read_buffer[0];
-            write_buffer[write_index]   = alphabet[(a >> 2)         as usize];
-            write_buffer[write_index+1] = alphabet[((a & 0x3) << 4) as usize];
+            write_buffer[write_index]   = ALPHABET[(a >> 2)         as usize];
+            write_buffer[write_index+1] = ALPHABET[((a & 0x3) << 4) as usize];
             write_buffer[write_index+2] = '='  as u8;
             write_buffer[write_index+3] = '='  as u8;
             write_buffer[write_index+4] = '\n' as u8;
@@ -233,9 +234,9 @@ fn b64_encode(mut reader: impl Read, mut writer: impl Write, wrap: Option<usize>
         2 => {
             // output last two byte as three data chars and one padding char
             let (a, b) = (read_buffer[0], read_buffer[1]);
-            write_buffer[write_index]   = alphabet[(a >> 2)                      as usize];
-            write_buffer[write_index+1] = alphabet[(((a & 0x3) << 4) | (b >> 4)) as usize];
-            write_buffer[write_index+2] = alphabet[((b & 0xF) << 2)              as usize];
+            write_buffer[write_index]   = ALPHABET[(a >> 2)                      as usize];
+            write_buffer[write_index+1] = ALPHABET[(((a & 0x3) << 4) | (b >> 4)) as usize];
+            write_buffer[write_index+2] = ALPHABET[((b & 0xF) << 2)              as usize];
             write_buffer[write_index+3] = '='  as u8;
             write_buffer[write_index+4] = '\n' as u8;
             write_index += 5;
@@ -250,23 +251,40 @@ fn b64_encode(mut reader: impl Read, mut writer: impl Write, wrap: Option<usize>
 }
 
 fn wrapping_write(buffer: &[u8], len: usize, wrap_col: Option<usize>, mut current_col: usize, writer: &mut impl Write) -> Result<usize, std::io::Error> {
+    // if wrapping is required
     if let Some(line_length) = wrap_col {
         let mut written = 0;
+
+        // while there are more bytes to write
         while written < len {
+            // calculate bytes remaining in line and total bytes remaining
             let line_remaining = line_length - current_col;
             let byte_remaining = len - written;
+
+            // bytes to write this iteration is the min of those values
             let n = line_remaining.min(byte_remaining);
+
+            // write the output
             writer.write_all(&buffer[written..written+n])?;
             written += n;
+
+            // if a line was completed
             if n == line_remaining {
+                // add a newline and reset the column counter
                 writer.write_all(b"\n")?;
                 current_col = 0 as usize;
+            // otherwise
             } else {
+                // advance to the new column
                 current_col += n;
             }
         }
+    // otherwise, if no wrapping
     } else {
+        // just output all the data
         writer.write_all(&buffer[0..len])?;
     }
+
+    // return the new column
     Ok(current_col)
 }
