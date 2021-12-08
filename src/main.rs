@@ -1,6 +1,6 @@
 extern crate clap;
 
-use std::io::{Read, Write, BufReader, BufWriter, stdin, stdout};
+use std::io::{Read, Write, BufReader, BufWriter, stdin, stdout, ErrorKind};
 use std::fs::{File};
 use clap::{App, Arg};
 
@@ -68,18 +68,116 @@ fn main() -> Result<(), std::io::Error> {
     }
 }
 
-fn b64_decode(mut _reader: impl Read, mut _writer: impl Write, _ignore_garbage: bool) -> Result<(), std::io::Error> {
+// the canonical base-64 alphabet
+const ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+fn b64_decode(mut reader: impl Read, mut writer: impl Write, ignore_garbage: bool) -> Result<(), std::io::Error> {
+    // create reverse lookup that maps:
+    //   - base-64 chars back to their value (0-63)
+    //   - base-64 padding to 254
+    //   - whitespace to 253
+    let mut reverse_alphabet: [u8; 256] = [255; 256];
+    for (i, c) in ALPHABET.bytes().enumerate() {
+        reverse_alphabet[c as usize] = i as u8;
+    }
+    reverse_alphabet['=' as usize] = 254;
+    for c in " \t\r\n".bytes() {
+        reverse_alphabet[c as usize] = 253;
+    }
+
+    // read & write buffers
+    let mut read_buffer:  [u8; 65536] = [0; 65536];
+    let mut write_buffer: [u8; 65536] = [0; 65536];
+    let mut write_index:  usize = 0; // current index into write_buffer
+    let mut write_offset: usize = 0; // current bit-offset within write_buffer[index]
+
+    loop {
+        // fill read buffer
+        let bytes_read = reader.read(&mut read_buffer[..])?;
+
+        // if out of data, exit loop
+        if bytes_read == 0 {
+            break;
+        }
+
+        // process bytes
+        for &b in read_buffer[0..bytes_read].iter() {
+            // decode the character
+            let decoded_value = reverse_alphabet[b as usize];
+
+            match decoded_value {
+                // invalid base-64 character
+                255 => {
+                    // either skip or error out depending on ignore_garbage flag
+                    if ignore_garbage {
+                        continue;
+                    } else {
+                        return Err(std::io::Error::new(ErrorKind::InvalidData, "invalid base64 character encountered"));
+                    }
+                }
+                // padding
+                254 => {
+                    // that means no more data is coming, so exit loop
+                    break;
+                }
+                // whitespace
+                253 => {
+                    // skip it
+                    continue;
+                }
+                // base-64 characters
+                _ => {
+                    // update write buffer by storing decoded_value and advancing by 6 bits
+                    match write_offset {
+                        0 => {
+                            // store value and advance by 6 bits
+                            write_buffer[write_index] = decoded_value << 2;
+                            write_offset = 6;
+                        }
+                        2 => {
+                            write_buffer[write_index] |= decoded_value;
+                            write_index += 1;
+                            write_offset = 0;
+                        }
+                        4 => {
+                            write_buffer[write_index] |= decoded_value >> 2;
+                            write_buffer[write_index+1] = decoded_value << 6;
+                            write_index += 1;
+                            write_offset = 2;
+                        }
+                        6 => {
+                            write_buffer[write_index] |= decoded_value >> 4;
+                            write_buffer[write_index+1] = decoded_value << 4;
+                            write_index += 1;
+                            write_offset = 4;
+                        }
+                        _ => { }
+                    }
+                }
+            }
+        }
+
+        // output decoded bytes
+        writer.write_all(&write_buffer[0..write_index])?;
+
+        // reset write buffer, saving partial byte if necessary
+        if write_offset != 0 {
+            write_buffer[0] = write_buffer[write_index];
+        }
+        write_index = 0;
+    }
+
     Ok(())
 }
 
 fn b64_encode(mut reader: impl Read, mut writer: impl Write, wrap: Option<usize>) -> Result<(), std::io::Error> {
-    let alphabet : Vec<u8> = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".bytes().collect();
+    let alphabet: Vec<u8> = ALPHABET.bytes().collect();
 
-    let mut read_buffer  : [u8; 65536] = [0; 65536];
-    let mut read_index   : usize       = 0;
-    let mut write_buffer : [u8; 98304] = [0; 98304];
-    let mut write_index  : usize       = 0;
-    let mut current_col  : usize       = 0;
+    let mut read_buffer:  [u8; 65536] = [0; 65536];
+    let mut read_index:   usize       = 0;
+    let mut write_buffer: [u8; 98304] = [0; 98304];
+    let mut write_index:  usize       = 0;
+    let mut current_col:  usize       = 0;
 
     loop {
         // fill read buffer
