@@ -1,0 +1,26 @@
+[package]
+name = "base64-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1.0.3", features = ["derive"] }
+
+[dependencies.base64]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "roundtrip_target"
+path = "fuzz_targets/roundtrip_target.rs"
+test = false
+doc = false
