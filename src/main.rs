@@ -1,4 +1,4 @@
-use std::io::{stdin, stdout};
+use std::io::{Stdin, Read, stdin, stdout};
 use std::fs::{File};
 use clap::{App, Arg};
 
@@ -40,27 +40,22 @@ fn main() -> Result<(), std::io::Error> {
     let stdout = stdout();
     let mut writer = stdout.lock();
 
-    // reader can be stdin or a file
-    if file == "-" {
-        // make a buffered reader around stdin
-        let stdin = stdin();
-        let mut reader = stdin.lock();
+    let stdin = stdin();
+    let mut reader = get_reader(file, &stdin)?;
 
-        // encode or decode as requested
-        if decode {
-            b64_decode(&mut reader, &mut writer, ignore_garbage)
-        } else {
-            b64_encode(&mut reader, &mut writer, wrap_column)
-        }
+    // encode or decode as requested
+    if decode {
+        b64_decode(&mut reader, &mut writer, ignore_garbage)
     } else {
-        // make a buffered reader around the file
-        let mut reader = File::open(file)?;
+        b64_encode(&mut reader, &mut writer, wrap_column)
+    }
+}
 
-        // encode or decode as requested
-        if decode {
-            b64_decode(&mut reader, &mut writer, ignore_garbage)
-        } else {
-            b64_encode(&mut reader, &mut writer, wrap_column)
-        }
+pub fn get_reader<'a>(file: &str, stdin: &'a Stdin) -> Result<Box<dyn Read + 'a>, std::io::Error> {
+    if file == "-" {
+        return Ok(Box::new(stdin.lock()));
+    } else {
+        let file = File::open(file)?;
+        return Ok(Box::new(file));
     }
 }
