@@ -24,3 +24,9 @@ name = "roundtrip_target"
 path = "fuzz_targets/roundtrip_target.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "line_length_target"
+path = "fuzz_targets/line_length_target.rs"
+test = false
+doc = false
