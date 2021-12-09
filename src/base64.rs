@@ -103,6 +103,11 @@ pub fn b64_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbag
 }
 
 pub fn b64_encode(reader: &mut impl Read, writer: &mut impl Write, wrap: Option<usize>) -> Result<(), std::io::Error> {
+    // sanity-check parameters
+    if wrap == Some(0) {
+        return Err(std::io::Error::new(ErrorKind::InvalidData, "cannot wrap on column 0"));
+    }
+
     // read and write buffers and indecies
     let mut read_buffer:  [u8; 65535] = [0; 65535];
     let mut read_index:   usize       = 0;
