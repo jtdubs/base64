@@ -205,15 +205,16 @@ fn wrapping_write(buffer: &[u8], len: usize, wrap_col: Option<usize>, mut curren
             writer.write_all(&buffer[written..written+n])?;
             written += n;
 
-            // if there are bytes left to write
-            if n != byte_remaining {
+            // if we wrote all remaining bytes on this line
+            if n == byte_remaining {
+                // advance to the new column
+                current_col += n;
+                break;
+            // otherwise
+            } else {
                 // add a newline and reset the column counter
                 writer.write_all(b"\n")?;
                 current_col = 0 as usize;
-            // otherwise
-            } else {
-                // advance to the new column
-                current_col += n;
             }
         }
     // otherwise, if no wrapping

@@ -1,5 +1,3 @@
-extern crate clap;
-
 use std::io::{stdin, stdout};
 use std::fs::{File};
 use clap::{App, Arg};

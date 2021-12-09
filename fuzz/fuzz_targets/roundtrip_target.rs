@@ -1,7 +1,6 @@
 #![no_main]
-#[macro_use] extern crate libfuzzer_sys;
-extern crate base64;
 
+use libfuzzer_sys::{fuzz_target};
 use std::io::{BufReader};
 use arbitrary::Arbitrary;
 use base64::*;

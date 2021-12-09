@@ -30,3 +30,9 @@ name = "line_length_target"
 path = "fuzz_targets/line_length_target.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "coreutils_comparison_target"
+path = "fuzz_targets/coreutils_comparison_target.rs"
+test = false
+doc = false
