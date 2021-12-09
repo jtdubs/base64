@@ -35,7 +35,7 @@ pub fn b64_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbag
         // process bytes
         for &b in read_buffer[0..bytes_read].iter() {
             // decode the character
-            let decoded_value = reverse_alphabet[b as usize];
+            let decoded_value: u8 = reverse_alphabet[b as usize];
 
             match decoded_value {
                 // invalid base-64 character
@@ -155,7 +155,7 @@ pub fn b64_encode(reader: &mut impl Read, writer: &mut impl Write, wrap: Option<
         0 => { }
         1 => {
             // output last byte as two data chars and two padding chars
-            let a = read_buffer[0];
+            let a: u8 = read_buffer[0];
             write_buffer[write_index]   = ALPHABET[(a >> 2)         as usize];
             write_buffer[write_index+1] = ALPHABET[((a & 0x3) << 4) as usize];
             write_buffer[write_index+2] = '='  as u8;
@@ -185,16 +185,16 @@ pub fn b64_encode(reader: &mut impl Read, writer: &mut impl Write, wrap: Option<
 fn wrapping_write(buffer: &[u8], len: usize, wrap_col: Option<usize>, mut current_col: usize, writer: &mut impl Write) -> Result<usize, std::io::Error> {
     // if wrapping is required
     if let Some(line_length) = wrap_col {
-        let mut written = 0;
+        let mut written: usize = 0;
 
         // while there are more bytes to write
         while written < len {
             // calculate bytes remaining in line and total bytes remaining
-            let line_remaining = line_length - current_col;
-            let byte_remaining = len - written;
+            let line_remaining: usize = line_length - current_col;
+            let byte_remaining: usize = len - written;
 
             // bytes to write this iteration is the min of those values
-            let n = line_remaining.min(byte_remaining);
+            let n: usize = line_remaining.min(byte_remaining);
 
             // write the output
             writer.write_all(&buffer[written..written+n])?;
