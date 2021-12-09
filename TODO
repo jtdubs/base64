@@ -1,1 +1,2 @@
-- add another fuzz target to compare against coreutils base64
+- cargo bench
+- cargo test

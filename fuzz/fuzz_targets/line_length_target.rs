@@ -12,6 +12,10 @@ pub struct Parameters<'a> {
 }
 
 fuzz_target!(|params: Parameters| {
+    assert!(fuzz_fn(params).is_ok());
+});
+
+fn fuzz_fn(params: Parameters) -> Result<(), std::io::Error> {
     let wrap = if params.wrap == 0 { None } else { Some(params.wrap) };
 
     let mut data_reader = BufReader::new(params.data);
@@ -19,7 +23,7 @@ fuzz_target!(|params: Parameters| {
     let mut encoded_buffer = Vec::new();
 
     // println!("encoding: {:?}", params.data);
-    assert!(b64_encode(&mut data_reader, &mut encoded_buffer, wrap).is_ok());
+    b64_encode(&mut data_reader, &mut encoded_buffer, wrap)?;
     // println!("encoded: {:?}", encoded_buffer.as_slice());
 
     let lines = Cursor::new(encoded_buffer.as_slice()).lines();
@@ -36,4 +40,6 @@ fuzz_target!(|params: Parameters| {
     } else {
         assert!(lines.count() == 1);
     }
-});
+
+    Ok(())
+}
