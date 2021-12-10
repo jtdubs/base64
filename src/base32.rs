@@ -5,23 +5,34 @@ use crate::common::wrapping_write;
 // the canonical base-64 alphabet
 const ALPHABET: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
-pub fn b32_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbage: bool) -> Result<(), std::io::Error> {
-    // create reverse lookup that maps:
-    //   - base-32 chars back to their value (0-31)
-    //   - base-32 padding to 254
-    //   - whitespace to 253
-    let mut reverse_alphabet: [u8; 256] = [255; 256];
-    for ix in 0..32 {
-        reverse_alphabet[ALPHABET[ix] as usize] = ix as u8;
-    }
-    reverse_alphabet['=' as usize] = 254;
-    for c in " \t\r\n".bytes() {
-        reverse_alphabet[c as usize] = 253;
-    }
+// reverse lookup that maps:
+// - base-32 chars back to their values (0-31)
+// - base-32 padding to 254
+// - whitespace to 253
+const REVERSE_ALPHABET: [u8; 256] = [
+//         0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
+/* 0 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFF, 0xFF,
+/* 1 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* 2 */ 0xFD, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* 3 */ 0xFF, 0xFF, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF,
+/* 4 */ 0xFF, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+/* 5 */ 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* 6 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* 7 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* 8 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* 9 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* A */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* B */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* C */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* D */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* E */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+/* F */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+];
 
+pub fn b32_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbage: bool) -> Result<(), std::io::Error> {
     // read & write buffers
-    let mut read_buffer:  [u8; 4096] = [0; 4096];
-    let mut write_buffer: [u8; 4096] = [0; 4096];
+    let mut read_buffer:  [u8; 65536] = [0; 65536];
+    let mut write_buffer: [u8; 65536] = [0; 65536];
     let mut write_index:  usize = 0; // current index into write_buffer
     let mut write_offset: usize = 0; // current bit-offset within write_buffer[index]
 
@@ -37,7 +48,7 @@ pub fn b32_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbag
         // process bytes
         for &b in read_buffer[0..bytes_read].iter() {
             // decode the character
-            let decoded_value: u8 = reverse_alphabet[b as usize];
+            let decoded_value: u8 = REVERSE_ALPHABET[b as usize];
 
             match decoded_value {
                 // invalid base-64 character
@@ -61,51 +72,45 @@ pub fn b32_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbag
                 }
                 // base-32 characters
                 _ => {
-                    // update write buffer by storing decoded_value and advancing by 5 bits
+                    // store decoded_value
                     match write_offset {
                         0 => {
-                            // store value and advance by 6 bits
                             write_buffer[write_index] = decoded_value << 3;
-                            write_offset = 5;
                         }
                         1 => {
                             write_buffer[write_index] |= decoded_value << 2;
-                            write_offset = 6;
                         }
                         2 => {
                             write_buffer[write_index] |= decoded_value << 1;
-                            write_offset = 7;
                         }
                         3 => {
                             write_buffer[write_index] |= decoded_value;
-                            write_index += 1;
-                            write_offset = 0;
                         }
                         4 => {
                             write_buffer[write_index] |= decoded_value >> 1;
                             write_buffer[write_index+1] = decoded_value << 7;
-                            write_index += 1;
-                            write_offset = 1;
                         }
                         5 => {
                             write_buffer[write_index] |= decoded_value >> 2;
                             write_buffer[write_index+1] = decoded_value << 6;
-                            write_index += 1;
-                            write_offset = 2;
                         }
                         6 => {
                             write_buffer[write_index] |= decoded_value >> 3;
                             write_buffer[write_index+1] = decoded_value << 5;
-                            write_index += 1;
-                            write_offset = 3;
                         }
                         7 => {
                             write_buffer[write_index] |= decoded_value >> 4;
                             write_buffer[write_index+1] = decoded_value << 4;
-                            write_index += 1;
-                            write_offset = 4;
                         }
                         _ => { }
+                    }
+
+                    // advance by 5 bits
+                    if write_offset <= 2 {
+                        write_offset += 5;
+                    } else {
+                        write_offset -= 3;
+                        write_index += 1;
                     }
                 }
             }
