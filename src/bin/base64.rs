@@ -1,8 +1,8 @@
 use std::io::{Stdin, Read, stdin, stdout};
-use std::fs::{File};
+use std::fs::File;
 use clap::{App, Arg};
 
-use base64::*;
+use base_util::*;
 
 fn main() {
     if let Err(e) = app() {

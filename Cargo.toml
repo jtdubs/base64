@@ -7,11 +7,18 @@ edition = "2021"
 description = "GNU-coreutils-compatible base64 encoder and decoder"
 
 [lib]
-path = "src/base64.rs"
+name = "base_util"
+path = "src/lib.rs"
+test = false
+bench = false
 
 [dependencies]
 clap = "2.34.0"
 
 [[bin]]
 name = "base64"
-path = "src/main.rs"
+path = "src/bin/base64.rs"
+
+[[bin]]
+name = "base32"
+path = "src/bin/base32.rs"

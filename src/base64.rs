@@ -1,16 +1,18 @@
 use std::io::{Read, Write, ErrorKind};
 
+use crate::common::wrapping_write;
+
 // the canonical base-64 alphabet
-const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 pub fn b64_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbage: bool) -> Result<(), std::io::Error> {
     // create reverse lookup that maps:
-    //   - base-64 chars back to their value (0-63)
-    //   - base-64 padding to 254
+    //   - base-n chars back to their value (0-63)
+    //   - base-n padding to 254
     //   - whitespace to 253
     let mut reverse_alphabet: [u8; 256] = [255; 256];
-    for ix in 0..64 {
-        reverse_alphabet[ALPHABET[ix] as usize] = ix as u8;
+    for (ix, &c) in ALPHABET.into_iter().enumerate() {
+        reverse_alphabet[c as usize] = ix as u8;
     }
     reverse_alphabet['=' as usize] = 254;
     for c in " \t\r\n".bytes() {
@@ -38,7 +40,7 @@ pub fn b64_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbag
             let decoded_value: u8 = reverse_alphabet[b as usize];
 
             match decoded_value {
-                // invalid base-64 character
+                // invalid base-n character
                 255 => {
                     // either skip or error out depending on ignore_garbage flag
                     if ignore_garbage {
@@ -57,7 +59,7 @@ pub fn b64_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbag
                     // skip it
                     continue;
                 }
-                // base-64 characters
+                // base-n characters
                 _ => {
                     // update write buffer by storing decoded_value and advancing by 6 bits
                     match write_offset {
@@ -140,17 +142,12 @@ pub fn b64_encode(reader: &mut impl Read, writer: &mut impl Write, wrap: Option<
         }
 
         // move residual data to front of buffer
-        match read_index % 3 {
-            0 => { }
-            1 => { read_buffer[0] = read_buffer[read_index-1]; }
-            2 => { read_buffer[0] = read_buffer[read_index-2]; read_buffer[1] = read_buffer[read_index-1]; }
-            _ => { unreachable!("impossible mod 3 value"); }
-        }
+        read_buffer.copy_within((read_index-(read_index%3))..read_index, 0);
 
         // update read index to end of residual data
         read_index %= 3;
 
-        // output base64 characters
+        // output base-n characters
         current_col = wrapping_write(&write_buffer, write_index, wrap, current_col, writer)?;
         write_index = 0;
     }
@@ -179,7 +176,7 @@ pub fn b64_encode(reader: &mut impl Read, writer: &mut impl Write, wrap: Option<
         _ => { unreachable!("impossible mod 3 value"); }
     }
 
-    // output base64 characters
+    // output base-n characters
     let _ = wrapping_write(&write_buffer, write_index, wrap, current_col, writer)?;
 
     // add a final newline, if wrapping is enabled
@@ -188,44 +185,4 @@ pub fn b64_encode(reader: &mut impl Read, writer: &mut impl Write, wrap: Option<
     }
 
     Ok(())
-}
-
-fn wrapping_write(buffer: &[u8], len: usize, wrap_col: Option<usize>, mut current_col: usize, writer: &mut impl Write) -> Result<usize, std::io::Error> {
-    // if wrapping is required
-    if let Some(line_length) = wrap_col {
-        let mut written: usize = 0;
-
-        // while there are more bytes to write
-        while written < len {
-            // calculate bytes remaining in line and total bytes remaining
-            let line_remaining: usize = line_length - current_col;
-            let byte_remaining: usize = len - written;
-
-            // bytes to write this iteration is the min of those values
-            let n: usize = line_remaining.min(byte_remaining);
-
-            // write the output
-            writer.write_all(&buffer[written..written+n])?;
-            written += n;
-
-            // if we wrote all remaining bytes on this line
-            if n == byte_remaining {
-                // advance to the new column
-                current_col += n;
-                break;
-            // otherwise
-            } else {
-                // add a newline and reset the column counter
-                writer.write_all(b"\n")?;
-                current_col = 0 as usize;
-            }
-        }
-    // otherwise, if no wrapping
-    } else {
-        // just output all the data
-        writer.write_all(&buffer[0..len])?;
-    }
-
-    // return the new column
-    Ok(current_col)
 }

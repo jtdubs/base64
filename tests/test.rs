@@ -1,5 +1,5 @@
 use std::io::{BufReader, BufWriter};
-use base64::*;
+use base_util::*;
 
 fn encode(input: &[u8], wrap: Option<usize>) -> Result<Vec<u8>, std::io::Error> {
     let output = Vec::new();
