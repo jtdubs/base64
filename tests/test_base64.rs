@@ -61,12 +61,12 @@ fn test_hello_world() {
 
 #[test]
 fn test_wrapping() {
-    test_bidi(b"The quick brown fox jumps over the lazy dog.", b"VGhlIHF1aWNrIGJyb3du\nIGZveCBqdW1wcyBvdmVy\nIHRoZSBsYXp5IGRvZy4=\n", Some(20), false);
+    test_bidi(b"The quick brown fox jumps over the lazy dog.", b"VGhlIHF1aWNrIGJyb3du\nIGZveCBqdW1wcyBvdmVy\nIHRoZSBsYXp5IGRvZy4=\n", Some(20), true);
 }
 
 #[test]
 fn test_err_on_invalid_char() {
-    test_decode_err(b"VGhlIHF1a^NrIGJyb3du\nIGZveCBqdW1wcyBvdmVy\nIHRoZSBsYXp5IGRvZy4=\n", false);
+    test_decode_err(b"VGhlIHF1a^WNrIGJyb3du\nIGZveCBqdW1wcyBvdmVy\nIHRoZSBsYXp5IGRvZy4=\n", false);
 }
 
 #[test]

@@ -1,6 +1,8 @@
 #!/bin/sh
 
-if [ ! -e files/test-empty  ]; then trucnate -s 0    files/test-empty;  fi
+set -e
+
+if [ ! -e files/test-empty  ]; then truncate -s 0    files/test-empty;  fi
 if [ ! -e files/test-small  ]; then truncate -s 100K files/test-small;  fi
 if [ ! -e files/test-medium ]; then truncate -s 10M  files/test-medium; fi
 if [ ! -e files/test-large  ]; then truncate -s 1G   files/test-large;  fi
@@ -9,6 +11,9 @@ if [ ! -e files/test-empty.b64  ]; then base64 files/test-empty  > files/test-em
 if [ ! -e files/test-small.b64  ]; then base64 files/test-small  > files/test-small.b64;  fi
 if [ ! -e files/test-medium.b64 ]; then base64 files/test-medium > files/test-medium.b64; fi
 if [ ! -e files/test-large.b64  ]; then base64 files/test-large  > files/test-large.b64;  fi
+
+# cargo build --release
+# hyperfine --warmup 0 -n rust '../target/release/base64 -d    files/test-large.b64  > /dev/null'
 
 # echo "empty..."
 # hyperfine --warmup 1 -n coreutils 'base64       files/test-empty      > /dev/null' -n rust '../target/release/base64       files/test-empty      > /dev/null' --export-markdown results/empty.md

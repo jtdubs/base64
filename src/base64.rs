@@ -1,4 +1,4 @@
-use std::io::{Read, Write, ErrorKind};
+use std::io::{BufReader, BufRead, Read, Write, ErrorKind};
 
 use crate::common::wrapping_write;
 
@@ -7,14 +7,14 @@ const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx
 
 // reverse lookup that maps:
 // - base-64 chars back to their values (0-63)
-// - base-64 padding to 254
+// - base-64 padding to 64
 // - whitespace to 253
 const REVERSE_ALPHABET: [u8; 256] = [
 //         0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
 /* 0 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFF, 0xFF,
 /* 1 */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 /* 2 */ 0xFD, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x3E, 0xFF, 0xFF, 0xFF, 0x3F,
-/* 3 */ 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF,
+/* 3 */ 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0xFF, 0xFF, 0xFF, 0x40, 0xFF, 0xFF,
 /* 4 */ 0xFF, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
 /* 5 */ 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 /* 6 */ 0xFF, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
@@ -29,87 +29,102 @@ const REVERSE_ALPHABET: [u8; 256] = [
 /* F */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 ];
 
-pub fn b64_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbage: bool) -> Result<(), std::io::Error> {
+pub fn b64_decode(internal_reader: &mut impl Read, writer: &mut impl Write, ignore_garbage: bool) -> Result<(), std::io::Error> {
+    let mut reader = BufReader::with_capacity(65536, internal_reader);
+
     // read & write buffers
-    let mut read_buffer:  [u8; 65536] = [0; 65536];
-    let mut write_buffer: [u8; 65536] = [0; 65536];
-    let mut write_index:  usize = 0; // current index into write_buffer
-    let mut write_offset: usize = 0; // current bit-offset within write_buffer[index]
+    let mut write_buffer: [u8; 3] = [0; 3];
+
+    // temp buffer
+    let mut word: [u8; 4] = [0; 4];
+    let mut word_index: usize = 0;
+
+    let mut reached_end = false;
 
     loop {
-        // fill read buffer
-        let bytes_read = reader.read(&mut read_buffer[..])?;
+        let buffer = reader.fill_buf()?;
 
-        // if out of data, exit loop
-        if bytes_read == 0 {
+        let n = buffer.len();
+        if n == 0 {
             break;
         }
 
-        // process bytes
-        for &b in read_buffer[0..bytes_read].iter() {
+        for &b in buffer {
             // decode the character
             let decoded_value: u8 = REVERSE_ALPHABET[b as usize];
+            word[word_index] = decoded_value;
+            word_index += 1;
 
-            match decoded_value {
-                // invalid base-64 character
-                255 => {
-                    // either skip or error out depending on ignore_garbage flag
-                    if ignore_garbage {
-                        continue;
-                    } else {
-                        return Err(std::io::Error::new(ErrorKind::Other, "invalid input"));
-                    }
-                }
-                // padding
-                254 => {
-                    // that means no more data is coming, so exit loop
-                    break;
-                }
-                // whitespace
-                253 => {
-                    // skip it
-                    continue;
-                }
-                // base-64 characters
-                _ => {
-                    // store decoded value
-                    match write_offset {
-                        0 => {
-                            write_buffer[write_index] = decoded_value << 2;
+            // if full word possibly ready to decode
+            if word_index == 4 {
+                // happy path, all bytes are valid
+                if (word[0] | word[1] | word[2] | word[3]) < 64 && !reached_end {
+                    // decode and output word
+                    write_buffer[0] = word[0] << 2 | word[1] >> 4;
+                    write_buffer[1] = word[1] << 4 | word[2] >> 2;
+                    write_buffer[2] = word[2] << 6 | word[3];
+                    writer.write_all(&write_buffer)?;
+                    word_index = 0;
+                } else {
+                    // clean out garbage and whitespace
+                    for i in 0..4 {
+                        match word[i] {
+                            253 => {
+                                word.copy_within((i+1)..4, i);
+                                word_index -= 1;
+                            }
+                            255 => {
+                                // either skip or error out depending on ignore_garbage flag
+                                if ignore_garbage {
+                                    word.copy_within((i+1)..4, i);
+                                    word_index -= 1;
+                                } else {
+                                    return Err(std::io::Error::new(ErrorKind::Other, "invalid input"));
+                                }
+                            }
+                            _ => { }
                         }
-                        2 => {
-                            write_buffer[write_index] |= decoded_value;
-                        }
-                        4 => {
-                            write_buffer[write_index] |= decoded_value >> 2;
-                            write_buffer[write_index+1] = decoded_value << 6;
-                        }
-                        6 => {
-                            write_buffer[write_index] |= decoded_value >> 4;
-                            write_buffer[write_index+1] = decoded_value << 4;
-                        }
-                        _ => { }
                     }
 
-                    // advance by 6 bits
-                    if write_offset <= 1 {
-                        write_offset += 6;
-                    } else {
-                        write_offset -= 2;
-                        write_index += 1;
+                    // if still full, must be padded
+                    if word_index == 4 {
+                        if reached_end {
+                            return Err(std::io::Error::new(ErrorKind::Other, "invalid input (2)"));
+                        }
+
+                        reached_end = true;
+                        word_index = 0;
+
+                        if word[1] == 64 && word[2] == 64 && word[3] == 64 {
+
+                        } else if word[2] == 64 && word[3] == 64 {
+                            write_buffer[0] = word[0] << 2 | word[1] >> 4;
+                            writer.write_all(&write_buffer[0..1])?;
+                        } else if word[3] == 64 {
+                            write_buffer[0] = word[0] << 2 | word[1] >> 4;
+                            write_buffer[1] = word[1] << 4 | word[2] >> 2;
+                            writer.write_all(&write_buffer[0..2])?;
+                        } else {
+                            return Err(std::io::Error::new(ErrorKind::Other, "invalid input (3)"));
+                        }
+
+                        if ignore_garbage {
+                            return Ok(());
+                        }
                     }
                 }
             }
         }
 
-        // output decoded bytes
-        writer.write_all(&write_buffer[0..write_index])?;
+        reader.consume(n);
+    }
 
-        // reset write buffer, saving partial byte if necessary
-        if write_offset != 0 {
-            write_buffer[0] = write_buffer[write_index];
+    if word_index != 0 && !ignore_garbage {
+        for i in 0..word_index {
+            if word[i] == 255 {
+                return Err(std::io::Error::new(ErrorKind::Other, "invalid input"));
+            }
         }
-        write_index = 0;
     }
 
     Ok(())
