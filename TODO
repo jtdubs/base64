@@ -1,2 +1,20 @@
 base-32 fuzz targets
 decoding is slow than coreutils...
+
+benchmark results:
+- startup overhead is about 0.1s more than coreutils
+- stdin decode w/  ignore is 250% faster
+- stdin decode w/o ignore is  80% faster
+- file  decode w/  ignore is  10% faster
+
+- file  decode w/o ignore is  20% slower
+- file  encode w/o wrap   is  20% slower
+- stdin encode w/o wrap   is  10% slower
+
+- stdin encode w/  wrap   is 100% slower
+- file  encode w/  wrap   is 300% slower
+
+
+summary:
+- coreutils is slow with stdin
+- i'm slow with wrapping

@@ -11,7 +11,7 @@ if [ ! -e files/test-medium.b64 ]; then base64 files/test-medium > files/test-me
 if [ ! -e files/test-large.b64  ]; then base64 files/test-large  > files/test-large.b64;  fi
 
 echo "empty..."
-hyperfine --warmup 1 -n coreutils 'base64       files/test-empty      > /dev/null' -n rust '../target/release/base64       files/test-empty      > /dev/null' --export-markdown results/file-encode-wrap-empty.md
+hyperfine --warmup 1 -n coreutils 'base64       files/test-empty      > /dev/null' -n rust '../target/release/base64       files/test-empty      > /dev/null' --export-markdown results/empty.md
 
 echo "Benchmarking wrapping encoding..."
 # hyperfine --warmup 1 -n coreutils 'base64       files/test-small      > /dev/null' -n rust '../target/release/base64       files/test-small      > /dev/null' --export-markdown results/file-encode-wrap-small.md
