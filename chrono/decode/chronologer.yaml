@@ -1,0 +1,10 @@
+benchmarks_dir: ./chrono/decode/runs
+benchmark_runs: 3
+benchmark_task: "{executable} -d bench/files/test-large.b64"
+warmup: 0
+build_command: "cargo build --release"
+built_executable: ./target/release/base64
+combined_benchmark_file: ./chrono/decode/all-benchmarks.json
+executables_dir: ./chrono/decode/executables
+html_output_file: ./chrono/decode/index.html
+revision_range: 2425e9..HEAD
