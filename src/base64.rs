@@ -44,7 +44,7 @@ pub fn b64_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbag
                     if ignore_garbage {
                         continue;
                     } else {
-                        return Err(std::io::Error::new(ErrorKind::InvalidData, "invalid base64 character encountered"));
+                        return Err(std::io::Error::new(ErrorKind::Other, "invalid input"));
                     }
                 }
                 // padding
@@ -105,7 +105,7 @@ pub fn b64_decode(reader: &mut impl Read, writer: &mut impl Write, ignore_garbag
 pub fn b64_encode(reader: &mut impl Read, writer: &mut impl Write, wrap: Option<usize>) -> Result<(), std::io::Error> {
     // sanity-check parameters
     if wrap == Some(0) {
-        return Err(std::io::Error::new(ErrorKind::InvalidData, "cannot wrap on column 0"));
+        return Err(std::io::Error::new(ErrorKind::Other, "cannot wrap on column 0"));
     }
 
     // read and write buffers and indecies

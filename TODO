@@ -1,6 +1,1 @@
 - cargo bench
-- errors
-  - handling of invalid base64 input
-  - file not found
-  - bad wrapping argument
-  - extra params

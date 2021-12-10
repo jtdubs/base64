@@ -4,7 +4,14 @@ use clap::{App, Arg};
 
 use base64::*;
 
-fn main() -> Result<(), std::io::Error> {
+fn main() {
+    if let Err(e) = app() {
+        eprintln!("base64: {}", e);
+        std::process::exit(1);
+    }
+}
+
+fn app() -> Result<(), std::io::Error> {
     // parse command line arguments
     let matches =
         App::new("base64")
@@ -40,22 +47,25 @@ fn main() -> Result<(), std::io::Error> {
     let stdout = stdout();
     let mut writer = stdout.lock();
 
+    // reader is either stdin or input file
     let stdin = stdin();
     let mut reader = get_reader(file, &stdin)?;
 
     // encode or decode as requested
     if decode {
-        b64_decode(&mut reader, &mut writer, ignore_garbage)
+        b64_decode(&mut reader, &mut writer, ignore_garbage)?;
     } else {
-        b64_encode(&mut reader, &mut writer, wrap_column)
+        b64_encode(&mut reader, &mut writer, wrap_column)?;
     }
+
+    Ok(())
 }
 
 pub fn get_reader<'a>(file: &str, stdin: &'a Stdin) -> Result<Box<dyn Read + 'a>, std::io::Error> {
     if file == "-" {
-        return Ok(Box::new(stdin.lock()));
+        Ok(Box::new(stdin.lock()))
     } else {
         let file = File::open(file)?;
-        return Ok(Box::new(file));
+        Ok(Box::new(file))
     }
 }
