@@ -1,5 +1,5 @@
-use std::io::{BufReader, BufWriter};
 use base_util::*;
+use std::io::{BufReader, BufWriter};
 
 fn encode(input: &[u8], wrap: Option<usize>) -> Result<Vec<u8>, std::io::Error> {
     let output = Vec::new();
@@ -48,7 +48,6 @@ fn test_bidi_simple(data: &[u8], encoded: &[u8]) {
     test_bidi(data, encoded, None, false);
 }
 
-
 #[test]
 fn test_empty() {
     test_bidi_simple(&[], &[]);
@@ -61,17 +60,29 @@ fn test_hello_world() {
 
 #[test]
 fn test_wrapping() {
-    test_bidi(b"The quick brown fox jumps over the lazy dog.", b"VGhlIHF1aWNrIGJyb3du\nIGZveCBqdW1wcyBvdmVy\nIHRoZSBsYXp5IGRvZy4=\n", Some(20), true);
+    test_bidi(
+        b"The quick brown fox jumps over the lazy dog.",
+        b"VGhlIHF1aWNrIGJyb3du\nIGZveCBqdW1wcyBvdmVy\nIHRoZSBsYXp5IGRvZy4=\n",
+        Some(20),
+        true,
+    );
 }
 
 #[test]
 fn test_err_on_invalid_char() {
-    test_decode_err(b"VGhlIHF1a^WNrIGJyb3du\nIGZveCBqdW1wcyBvdmVy\nIHRoZSBsYXp5IGRvZy4=\n", false);
+    test_decode_err(
+        b"VGhlIHF1a^WNrIGJyb3du\nIGZveCBqdW1wcyBvdmVy\nIHRoZSBsYXp5IGRvZy4=\n",
+        false,
+    );
 }
 
 #[test]
 fn test_ignore_invalid_char() {
-    test_decode(b"VGhlIHF1aWNrIGJyb3du^^\nIGZveCBqdW1wcyBvdmVy\nIHRoZSBsYXp5IGRvZy4=\n", b"The quick brown fox jumps over the lazy dog.", true);
+    test_decode(
+        b"VGhlIHF1aWNrIGJyb3du^^\nIGZveCBqdW1wcyBvdmVy\nIHRoZSBsYXp5IGRvZy4=\n",
+        b"The quick brown fox jumps over the lazy dog.",
+        true,
+    );
 }
 
 #[test]

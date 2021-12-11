@@ -1,6 +1,12 @@
 use std::io::Write;
 
-pub fn wrapping_write(buffer: &[u8], len: usize, wrap_col: Option<usize>, mut current_col: usize, writer: &mut impl Write) -> Result<usize, std::io::Error> {
+pub fn wrapping_write(
+    buffer: &[u8],
+    len: usize,
+    wrap_col: Option<usize>,
+    mut current_col: usize,
+    writer: &mut impl Write,
+) -> Result<usize, std::io::Error> {
     // if wrapping is required
     if let Some(line_length) = wrap_col {
         let mut written: usize = 0;
@@ -15,7 +21,7 @@ pub fn wrapping_write(buffer: &[u8], len: usize, wrap_col: Option<usize>, mut cu
             let n: usize = line_remaining.min(byte_remaining);
 
             // write the output
-            writer.write_all(&buffer[written..written+n])?;
+            writer.write_all(&buffer[written..written + n])?;
             written += n;
 
             // if we wrote all remaining bytes on this line

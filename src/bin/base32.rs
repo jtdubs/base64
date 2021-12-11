@@ -1,6 +1,6 @@
-use std::io::{Stdin, Read, stdin, stdout};
-use std::fs::File;
 use clap::{App, Arg};
+use std::fs::File;
+use std::io::{stdin, stdout, Read, Stdin};
 
 use base_util::*;
 
@@ -38,10 +38,15 @@ fn app() -> Result<(), std::io::Error> {
             .get_matches();
 
     // pull out arguments
-    let decode         = matches.is_present("decode");
+    let decode = matches.is_present("decode");
     let ignore_garbage = matches.is_present("ignore_garbage");
-    let wrap_column    = matches.value_of("wrap").unwrap().parse::<usize>().ok().filter(|&x| x != 0);
-    let file           = matches.value_of("FILE").unwrap_or("-");
+    let wrap_column = matches
+        .value_of("wrap")
+        .unwrap()
+        .parse::<usize>()
+        .ok()
+        .filter(|&x| x != 0);
+    let file = matches.value_of("FILE").unwrap_or("-");
 
     // writer is always stdout
     let stdout = stdout();
