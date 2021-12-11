@@ -217,7 +217,7 @@ pub fn b64_encode(
 
         // process all chunks of 3 bytes into 4 output characters
         let mut i = 0;
-        while i < (read_index - 2) {
+        while (i + 2) < read_index {
             let c = &read_buffer[i..i + 3];
             write_buffer[write_index] = ALPHABET[(c[0] >> 2) as usize];
             write_buffer[write_index + 1] = ALPHABET[(((c[0] & 0x3) << 4) | (c[1] >> 4)) as usize];

@@ -50,7 +50,8 @@ fn app() -> Result<(), std::io::Error> {
 
     // writer is always stdout
     let stdout = stdout();
-    let mut writer = stdout.lock();
+    let stdout_lock = stdout.lock();
+    let mut writer = BufWriter::new(stdout_lock);
 
     // reader is either stdin or input file
     let stdin = stdin();
