@@ -22,19 +22,37 @@ name = "base_util"
 members = ["."]
 
 [[bin]]
-name = "roundtrip_target"
-path = "fuzz_targets/roundtrip_target.rs"
+name = "b64_roundtrip_target"
+path = "fuzz_targets/b64_roundtrip_target.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "line_length_target"
-path = "fuzz_targets/line_length_target.rs"
+name = "b64_line_length_target"
+path = "fuzz_targets/b64_line_length_target.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "coreutils_comparison_target"
-path = "fuzz_targets/coreutils_comparison_target.rs"
+name = "b64_coreutils_comparison_target"
+path = "fuzz_targets/b64_coreutils_comparison_target.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "b32_roundtrip_target"
+path = "fuzz_targets/b32_roundtrip_target.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "b32_line_length_target"
+path = "fuzz_targets/b32_line_length_target.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "b32_coreutils_comparison_target"
+path = "fuzz_targets/b32_coreutils_comparison_target.rs"
 test = false
 doc = false

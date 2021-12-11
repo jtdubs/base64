@@ -12,7 +12,6 @@ if [ ! -e files/test-small.b64  ]; then base64 files/test-small  > files/test-sm
 if [ ! -e files/test-medium.b64 ]; then base64 files/test-medium > files/test-medium.b64; fi
 if [ ! -e files/test-large.b64  ]; then base64 files/test-large  > files/test-large.b64;  fi
 
-echo "empty..."
 hyperfine --warmup 1 -n coreutils 'base64       files/test-empty           > /dev/null' -n rust '../target/release/base64       files/test-empty           > /dev/null' --export-markdown results/b64-empty.md
 hyperfine --warmup 1 -n coreutils 'base64       files/test-large           > /dev/null' -n rust '../target/release/base64       files/test-large           > /dev/null' --export-markdown results/b64-file-encode-wrap-large.md
 hyperfine --warmup 1 -n coreutils 'base64 -w 0  files/test-large           > /dev/null' -n rust '../target/release/base64 -w 0  files/test-large           > /dev/null' --export-markdown results/b64-file-encode-nowrap-large.md
