@@ -171,11 +171,11 @@ pub fn b64_encode(reader: &mut impl Read, writer: &mut impl Write, wrap: Option<
         // process all chunks of 3 bytes into 4 output characters
         let mut i = 0;
         while i < (read_index - 3) {
-            let (a, b, c) = (read_buffer[i], read_buffer[i+1], read_buffer[i+2]);
-            write_buffer[write_index]   = ALPHABET[(a >> 2) as usize];
-            write_buffer[write_index+1] = ALPHABET[(((a & 0x3) << 4) | (b >> 4)) as usize];
-            write_buffer[write_index+2] = ALPHABET[(((b & 0xF) << 2) | (read_buffer[i+2] >> 6)) as usize];
-            write_buffer[write_index+3] = ALPHABET[(c & 0x3F) as usize];
+            let c = &read_buffer[i..i+3];
+            write_buffer[write_index]   = ALPHABET[(c[0] >> 2) as usize];
+            write_buffer[write_index+1] = ALPHABET[(((c[0] & 0x3) << 4) | (c[1] >> 4)) as usize];
+            write_buffer[write_index+2] = ALPHABET[(((c[1] & 0xF) << 2) | (c[2] >> 6)) as usize];
+            write_buffer[write_index+3] = ALPHABET[(c[2] & 0x3F) as usize];
             write_index += 4;
             i += 3;
         }
