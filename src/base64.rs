@@ -169,19 +169,19 @@ pub fn b64_encode(reader: &mut impl Read, writer: &mut impl Write, wrap: Option<
         read_index += bytes_read;
 
         // process all chunks of 3 bytes into 4 output characters
-        for chunk in read_buffer[0..read_index].chunks_exact(3) {
-            let (a, b, c) = (chunk[0], chunk[1], chunk[2]);
-            write_buffer[write_index]   = ALPHABET[(a >> 2)                      as usize];
+        let mut i = 0;
+        while i < (read_index - 3) {
+            let (a, b, c) = (read_buffer[i], read_buffer[i+1], read_buffer[i+2]);
+            write_buffer[write_index]   = ALPHABET[(a >> 2) as usize];
             write_buffer[write_index+1] = ALPHABET[(((a & 0x3) << 4) | (b >> 4)) as usize];
-            write_buffer[write_index+2] = ALPHABET[(((b & 0xF) << 2) | (c >> 6)) as usize];
-            write_buffer[write_index+3] = ALPHABET[(c & 0x3F)                    as usize];
+            write_buffer[write_index+2] = ALPHABET[(((b & 0xF) << 2) | (read_buffer[i+2] >> 6)) as usize];
+            write_buffer[write_index+3] = ALPHABET[(c & 0x3F) as usize];
             write_index += 4;
+            i += 3;
         }
-
-        // move residual data to front of buffer
-        read_buffer.copy_within((read_index-(read_index%3))..read_index, 0);
-
-        // update read index to end of residual data
+        if i != read_index {
+            read_buffer.copy_within(i..read_index, 0);
+        }
         read_index %= 3;
 
         // output base-64 characters
@@ -195,26 +195,24 @@ pub fn b64_encode(reader: &mut impl Read, writer: &mut impl Write, wrap: Option<
         1 => {
             // output last byte as two data chars and two padding chars
             let a: u8 = read_buffer[0];
-            write_buffer[write_index]   = ALPHABET[(a >> 2)         as usize];
-            write_buffer[write_index+1] = ALPHABET[((a & 0x3) << 4) as usize];
-            write_buffer[write_index+2] = '='  as u8;
-            write_buffer[write_index+3] = '='  as u8;
-            write_index += 4;
+            write_buffer[0] = ALPHABET[(a >> 2)         as usize];
+            write_buffer[1] = ALPHABET[((a & 0x3) << 4) as usize];
+            write_buffer[2] = '='  as u8;
+            write_buffer[3] = '='  as u8;
+            let _ = wrapping_write(&write_buffer, 4, wrap, current_col, writer)?;
         }
         2 => {
             // output last two byte as three data chars and one padding char
             let (a, b) = (read_buffer[0], read_buffer[1]);
-            write_buffer[write_index]   = ALPHABET[(a >> 2)                      as usize];
-            write_buffer[write_index+1] = ALPHABET[(((a & 0x3) << 4) | (b >> 4)) as usize];
-            write_buffer[write_index+2] = ALPHABET[((b & 0xF) << 2)              as usize];
-            write_buffer[write_index+3] = '='  as u8;
-            write_index += 4;
+            write_buffer[0]   = ALPHABET[(a >> 2)                      as usize];
+            write_buffer[1] = ALPHABET[(((a & 0x3) << 4) | (b >> 4)) as usize];
+            write_buffer[2] = ALPHABET[((b & 0xF) << 2)              as usize];
+            write_buffer[3] = '='  as u8;
+            let _ = wrapping_write(&write_buffer, 4, wrap, current_col, writer)?;
         }
         _ => { unreachable!("impossible mod 3 value"); }
     }
 
-    // output base-64 characters
-    let _ = wrapping_write(&write_buffer, write_index, wrap, current_col, writer)?;
 
     // add a final newline, if wrapping is enabled
     if wrap.is_some() {
