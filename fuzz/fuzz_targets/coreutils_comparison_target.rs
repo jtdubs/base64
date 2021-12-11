@@ -5,7 +5,7 @@ use tempfile::{NamedTempFile};
 use std::io::{Write, BufReader};
 use std::process::Command;
 use arbitrary::Arbitrary;
-use base64::*;
+use base_util::*;
 
 #[derive(Arbitrary, Debug)]
 pub struct Parameters<'a> {

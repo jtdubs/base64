@@ -15,6 +15,7 @@ tempfile = "3.2.0"
 
 [dependencies.base64]
 path = ".."
+name = "base_util"
 
 # Prevent this from interfering with workspaces
 [workspace]

@@ -3,7 +3,7 @@
 use libfuzzer_sys::{fuzz_target};
 use std::io::{BufReader};
 use arbitrary::Arbitrary;
-use base64::*;
+use base_util::*;
 
 #[derive(Arbitrary, Debug)]
 pub struct Parameters<'a> {
@@ -19,6 +19,8 @@ fuzz_target!(|params: Parameters| {
 fn fuzz_fn(params: Parameters) -> Result<(), std::io::Error> {
     let wrap = if params.wrap == 0 { None } else { Some(params.wrap) };
 
+    // eprintln!("input: {:?}", params.data);
+
     let mut data_reader = BufReader::new(params.data);
 
     let mut encoded_buffer = Vec::new();
@@ -26,8 +28,12 @@ fn fuzz_fn(params: Parameters) -> Result<(), std::io::Error> {
 
     b64_encode(&mut data_reader, &mut encoded_buffer, wrap)?;
 
+    // eprintln!("encoded: {:?}", encoded_buffer.as_slice());
+
     let mut encoded_reader = BufReader::new(encoded_buffer.as_slice());
     b64_decode(&mut encoded_reader, &mut decoded_buffer, params.ignore_garbage)?;
+
+    // eprintln!("decoded: {:?}", decoded_buffer.as_slice());
 
     assert!(params.data == decoded_buffer, "roundtrip failed!");
 

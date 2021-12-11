@@ -33,7 +33,8 @@ pub fn b64_decode(internal_reader: &mut impl Read, writer: &mut impl Write, igno
     let mut reader = BufReader::with_capacity(65536, internal_reader);
 
     // read & write buffers
-    let mut write_buffer: [u8; 3] = [0; 3];
+    let mut write_buffer: [u8; 65536] = [0; 65536];
+    let mut write_index: usize = 0;
 
     // temp buffer
     let mut word: [u8; 4] = [0; 4];
@@ -60,14 +61,16 @@ pub fn b64_decode(internal_reader: &mut impl Read, writer: &mut impl Write, igno
                 // happy path, all bytes are valid
                 if (word[0] | word[1] | word[2] | word[3]) < 64 && !reached_end {
                     // decode and output word
-                    write_buffer[0] = word[0] << 2 | word[1] >> 4;
-                    write_buffer[1] = word[1] << 4 | word[2] >> 2;
-                    write_buffer[2] = word[2] << 6 | word[3];
-                    writer.write_all(&write_buffer)?;
+                    write_buffer[write_index]   = (word[0] << 2) | (word[1] >> 4);
+                    write_buffer[write_index+1] = (word[1] << 4) | (word[2] >> 2);
+                    write_buffer[write_index+2] = (word[2] << 6) | (word[3]);
+                    // eprintln!("buf[{}..{}] = {:?}", write_index, write_index+3, &write_buffer[write_index..write_index+3]);
+                    write_index += 3;
                     word_index = 0;
                 } else {
                     // clean out garbage and whitespace
-                    for i in 0..4 {
+                    let mut i = 0;
+                    while i < word_index {
                         match word[i] {
                             253 => {
                                 word.copy_within((i+1)..4, i);
@@ -82,7 +85,9 @@ pub fn b64_decode(internal_reader: &mut impl Read, writer: &mut impl Write, igno
                                     return Err(std::io::Error::new(ErrorKind::Other, "invalid input"));
                                 }
                             }
-                            _ => { }
+                            _ => {
+                                i += 1;
+                            }
                         }
                     }
 
@@ -98,23 +103,29 @@ pub fn b64_decode(internal_reader: &mut impl Read, writer: &mut impl Write, igno
                         if word[1] == 64 && word[2] == 64 && word[3] == 64 {
 
                         } else if word[2] == 64 && word[3] == 64 {
-                            write_buffer[0] = word[0] << 2 | word[1] >> 4;
-                            writer.write_all(&write_buffer[0..1])?;
+                            write_buffer[write_index] = (word[0] << 2) | (word[1] >> 4);
+                            // eprintln!("buf[{}] = {:?}", write_index, &write_buffer[write_index]);
+                            write_index += 1;
                         } else if word[3] == 64 {
-                            write_buffer[0] = word[0] << 2 | word[1] >> 4;
-                            write_buffer[1] = word[1] << 4 | word[2] >> 2;
-                            writer.write_all(&write_buffer[0..2])?;
+                            write_buffer[write_index]   = (word[0] << 2) | (word[1] >> 4);
+                            write_buffer[write_index+1] = (word[1] << 4) | (word[2] >> 2);
+                            // eprintln!("buf[{}..{}] = {:?}", write_index, write_index+2, &write_buffer[write_index..write_index+2]);
+                            write_index += 2;
                         } else {
                             return Err(std::io::Error::new(ErrorKind::Other, "invalid input (3)"));
                         }
 
                         if ignore_garbage {
+                            writer.write_all(&write_buffer[0..write_index])?;
                             return Ok(());
                         }
                     }
                 }
             }
         }
+
+        writer.write_all(&write_buffer[0..write_index])?;
+        write_index = 0;
 
         reader.consume(n);
     }

@@ -3,7 +3,7 @@
 use libfuzzer_sys::{fuzz_target};
 use std::io::{BufRead, BufReader, Cursor};
 use arbitrary::Arbitrary;
-use base64::*;
+use base_util::*;
 
 #[derive(Arbitrary, Debug)]
 pub struct Parameters<'a> {

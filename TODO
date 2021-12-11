@@ -1,22 +1,27 @@
 base-32 fuzz targets
 base-32 benchmarking
+rewrite base32 decode in new style matching base64 decode...
 
 ensure handling of padding is correct and matches coreutil implementation
 
 benchmark results:
 - startup overhead is about 0.1s more than coreutils
+- file  decode w/  ignore is 2.10 times faster
+- file  decode w/o ignore is 1.43 times faster
+- stdin decode w/  ignore is 3.81 times faster
+- stdin decode w/o ignore is 2.72 times faster
 
-- file  decode w/  ignore is 1.14 faster
 - file  encode w/  wrap   is 1.01 faster
-- stdin decode w/  ignore is 2.38 faster
-- stdin decode w/o ignore is 1.78 faster
+- file  encode w/o wrap   is 1.16 slower
 - stdin encode w/  wrap   is 1.15 faster
 - stdin encode w/o wrap   is 1.09 faster
 
-- file  decode w/o ignore is 1.19 slower
-- file  encode w/o wrap   is 1.16 slower
+- file  encode w/  wrap   is 1.03 times faster
+- file  encode w/o wrap   is 1.15 times SLOWER
+- stdin encode w/  wrap   is 1.15 times faster
+- stdin encode w/o wrap   is 1.07 times faster
 
 
 summary:
 - coreutils is slow with stdin
-- coreutils has some trick to make decode w/o ignore faster, and encode w/o wrap faster
+- coreutils encode w/o wrap is fast...
