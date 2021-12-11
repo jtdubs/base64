@@ -1,3 +1,2 @@
 base-32 fuzz targets
-base-32 benchmarking
 rewrite base32 decode in new style matching base64 decode...

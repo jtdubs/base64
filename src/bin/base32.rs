@@ -66,7 +66,7 @@ fn app() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-pub fn get_reader<'a>(file: &str, stdin: &'a Stdin) -> Result<Box<dyn Read + 'a>, std::io::Error> {
+fn get_reader<'a>(file: &str, stdin: &'a Stdin) -> Result<Box<dyn Read + 'a>, std::io::Error> {
     if file == "-" {
         Ok(Box::new(stdin.lock()))
     } else {
