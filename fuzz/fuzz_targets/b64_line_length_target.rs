@@ -1,14 +1,14 @@
 #![no_main]
 
-use libfuzzer_sys::{fuzz_target};
-use std::io::{BufRead, BufReader, Cursor};
 use arbitrary::Arbitrary;
 use base_util::*;
+use libfuzzer_sys::fuzz_target;
+use std::io::{BufRead, BufReader, Cursor};
 
 #[derive(Arbitrary, Debug)]
 pub struct Parameters<'a> {
     wrap: usize,
-    data: &'a [u8]
+    data: &'a [u8],
 }
 
 fuzz_target!(|params: Parameters| {
@@ -16,7 +16,11 @@ fuzz_target!(|params: Parameters| {
 });
 
 fn fuzz_fn(params: Parameters) -> Result<(), std::io::Error> {
-    let wrap = if params.wrap == 0 { None } else { Some(params.wrap) };
+    let wrap = if params.wrap == 0 {
+        None
+    } else {
+        Some(params.wrap)
+    };
 
     let mut data_reader = BufReader::new(params.data);
 
@@ -32,7 +36,12 @@ fn fuzz_fn(params: Parameters) -> Result<(), std::io::Error> {
         let mut last_line = false;
         for line in lines {
             let l = line.unwrap();
-            assert!(l.len() == line_len || (l.len() < line_len && !last_line), "expected: {}, got: {}", line_len, l.len());
+            assert!(
+                l.len() == line_len || (l.len() < line_len && !last_line),
+                "expected: {}, got: {}",
+                line_len,
+                l.len()
+            );
             if l.len() < line_len {
                 last_line = true;
             }

@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use std::fs::File;
-use std::io::{stdin, stdout, Read, Stdin};
+use std::io::{stdin, stdout, BufWriter, Read, Stdin};
 
 use base_util::*;
 

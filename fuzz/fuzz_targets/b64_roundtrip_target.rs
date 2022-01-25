@@ -1,15 +1,15 @@
 #![no_main]
 
-use libfuzzer_sys::{fuzz_target};
-use std::io::{BufReader};
 use arbitrary::Arbitrary;
 use base_util::*;
+use libfuzzer_sys::fuzz_target;
+use std::io::BufReader;
 
 #[derive(Arbitrary, Debug)]
 pub struct Parameters<'a> {
     ignore_garbage: bool,
     wrap: usize,
-    data: &'a [u8]
+    data: &'a [u8],
 }
 
 fuzz_target!(|params: Parameters| {
@@ -17,7 +17,11 @@ fuzz_target!(|params: Parameters| {
 });
 
 fn fuzz_fn(params: Parameters) -> Result<(), std::io::Error> {
-    let wrap = if params.wrap == 0 { None } else { Some(params.wrap) };
+    let wrap = if params.wrap == 0 {
+        None
+    } else {
+        Some(params.wrap)
+    };
 
     // eprintln!("input: {:?}", params.data);
 
@@ -31,7 +35,11 @@ fn fuzz_fn(params: Parameters) -> Result<(), std::io::Error> {
     // eprintln!("encoded: {:?}", encoded_buffer.as_slice());
 
     let mut encoded_reader = BufReader::new(encoded_buffer.as_slice());
-    b64_decode(&mut encoded_reader, &mut decoded_buffer, params.ignore_garbage)?;
+    b64_decode(
+        &mut encoded_reader,
+        &mut decoded_buffer,
+        params.ignore_garbage,
+    )?;
 
     // eprintln!("decoded: {:?}", decoded_buffer.as_slice());
 

@@ -68,7 +68,7 @@ pub fn b64_decode(
             break;
         }
 
-        // for each byte in thebuffer
+        // for each byte in the buffer
         for &b in buffer {
             // decode the character and add to the word
             let decoded_value: u8 = REVERSE_ALPHABET[b as usize];
